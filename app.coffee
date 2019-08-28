@@ -8,6 +8,7 @@ module.exports = class App
 
   currentBranch: undefined
   targetBranch: undefined
+  needToStashPop: no
 
   constructor: ->
     console.log 'process.cwd():'.cyan, process.cwd()
@@ -17,7 +18,7 @@ module.exports = class App
     gitP().status().then (s) =>
       console.log 'Git status:', s
       @currentBranch = s.current
-      console.log 'Current Branch :'.blue, @currentBranch
+      console.log '\nCurrent Branch :'.blue, @currentBranch
       @gitStash()
     , (err) ->
       console.log 'err:'.red, err
@@ -49,12 +50,18 @@ module.exports = class App
           gitP().stash ['push', '--include-untracked']
           .then (d) =>
             console.log ' Stash OK => '.green, d
+
+            if d is 'No local changes to save'
+              @needToStashPop = no
             @gitCheckout()
+        else
+          @needToStashPop = no
+          @gitCheckout()
 
 
   gitCheckout: ->
 
-    console.log 'Which branch do you want to merge ?'.magenta
+    console.log '\nWhich branch do you want to merge ?'.magenta
 
     promptSchema =
       properties:
@@ -116,10 +123,13 @@ module.exports = class App
           .then (m) =>
             console.log ' Merge OK => '.green, m
 
-            console.log '\ngit stash pop'.blue
-            gitP().stash ['pop']
-            .then (p) =>
-              console.log ' Pop OK => '.green, p
+            if @needToStashPop
+              console.log '\ngit stash pop'.blue
+              gitP().stash ['pop']
+              .then (p) =>
+                console.log ' Pop OK => '.green, p
+            else
+              console.log '\nDon\'t need to "stash pop"'.yellow
 
 
 app = new App()
