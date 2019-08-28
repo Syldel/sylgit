@@ -87,15 +87,39 @@ module.exports = class App
             .then (c) =>
               console.log ' Checkout OK => '.green, c
 
-              console.log ('\ngit merge ' + @targetBranch).blue
-              gitP().merge [@targetBranch]
-              .then (m) =>
-                console.log ' Merge OK => '.green, m
+              @gitMerge()
 
-                console.log '\ngit stash pop'.blue
-                gitP().stash ['pop']
-                .then (p) =>
-                  console.log ' Pop OK => '.green, p
+
+  gitMerge: ->
+
+    console.log ('\nAre you sure you want to merge ' + @targetBranch + ' in ' + @currentBranch + ' ?').magenta
+
+    promptSchema =
+      properties:
+        merge:
+          pattern: /^[a-zA-Z]+$/
+          message: 'Answer y/n or yes/no'
+          required: true
+          default: 'no'
+
+    prompt.get promptSchema, (err, result) =>
+      if err
+        console.log 'error:'.red, err
+      else
+        mergeOk = result.merge
+        console.log ' mergeOk:', (mergeOk).cyan
+
+        if mergeOk is 'yes' or mergeOk is 'y'
+
+          console.log ('\ngit merge ' + @targetBranch).blue
+          gitP().merge [@targetBranch]
+          .then (m) =>
+            console.log ' Merge OK => '.green, m
+
+            console.log '\ngit stash pop'.blue
+            gitP().stash ['pop']
+            .then (p) =>
+              console.log ' Pop OK => '.green, p
 
 
 app = new App()
