@@ -1,0 +1,28 @@
+{
+  "name": "sylgit",
+  "version": "1.0.0",
+  "description": "Use git faster",
+  "main": "app.js",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Syldel/sylgit.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "coffee app.coffee",
+    "build": "coffee -c app.coffee"
+  },
+  "author": "Sylvain D.",
+  "license": "ISC",
+  "dependencies": {
+    "coffeescript": "^2.4.1",
+    "colors": "^1.1.2",
+    "prompt": "^1.0.0",
+    "q": "^1.5.1",
+    "simple-git": "^1.124.0"
+  },
+  "homepage": "https://github.com/Syldel/sylgit#readme",
+  "bin": {
+    "sylgit": "bin/sylgit.js"
+  }
+}
