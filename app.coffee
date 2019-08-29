@@ -94,7 +94,11 @@ module.exports = class App
             .then (c) =>
               console.log ' Checkout OK => '.green, c
 
-              @gitMerge()
+              gitP().raw ['--no-pager', 'log', '--graph', '--oneline', '-n', '12']
+              .then (log) =>
+                console.log 'log:', log
+
+                @gitMerge()
 
 
   gitMerge: ->
