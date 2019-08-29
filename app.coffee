@@ -123,13 +123,23 @@ module.exports = class App
           .then (m) =>
             console.log ' Merge OK => '.green, m
 
-            if @needToStashPop
-              console.log '\ngit stash pop'.blue
-              gitP().stash ['pop']
-              .then (p) =>
-                console.log ' Pop OK => '.green, p
-            else
-              console.log '\nDon\'t need to "stash pop"'.yellow
+            @gitStashPop()
+
+        else
+          console.log 'You don\t want to merge'
+
+          @gitStashPop()
+
+
+  gitStashPop: ->
+
+    if @needToStashPop
+      console.log '\ngit stash pop'.blue
+      gitP().stash ['pop']
+      .then (p) =>
+        console.log ' Pop OK => '.green, p
+    else
+      console.log '\nDon\'t need to "stash pop"'.yellow
 
 
 app = new App()
