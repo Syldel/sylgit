@@ -3,25 +3,50 @@ prompt = require 'prompt'
 fs = require 'fs'
 q = require 'q'
 gitP = require 'simple-git/promise'
+commandLineArgs = require 'command-line-args'
 
 module.exports = class App
 
   currentBranch: undefined
   targetBranch: undefined
-  needToStashPop: no
+  needToStashPop: yes
 
   constructor: ->
     console.log 'process.cwd():'.cyan, process.cwd()
 
+    optionDefinitions = [
+      { name: 'log', alias: 'l', type: Boolean }
+    ]
+
+    options = commandLineArgs optionDefinitions
+    console.log 'options:', options
+
+    @initGit().then () =>
+      if options and options.log
+        gitP().raw ['--no-pager', 'log', '--graph', '--oneline', '-n', '12']
+        .then (log) =>
+          console.log 'log:', log
+      else
+        @gitStash()
+
+
+  initGit: ->
+    console.log '\nInit Git'.cyan
+    deferred = q.defer()
     gitP().cwd process.cwd()
 
+    console.log ('\ngit status').blue
     gitP().status().then (s) =>
-      console.log 'Git status:', s
+      console.log ' Git status:'.green, s
       @currentBranch = s.current
-      console.log '\nCurrent Branch :'.blue, @currentBranch
-      @gitStash()
+      console.log '\n Current Branch :'.green, @currentBranch
+      deferred.resolve()
+
     , (err) ->
       console.log 'err:'.red, err
+      deferred.reject err
+
+    deferred.promise
 
 
   gitStash: ->
