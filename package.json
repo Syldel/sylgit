@@ -26,5 +26,10 @@
   "homepage": "https://github.com/Syldel/sylgit#readme",
   "bin": {
     "sylgit": "bin/sylgit.js"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-coffee": "^3.0.3",
+    "gulp-coffeelint": "^0.6.0"
   }
 }
