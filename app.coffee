@@ -74,7 +74,7 @@ module.exports = class App
 
 
   gitCheckout: ->
-
+    console.log ''
     @getClosestParentBranch().then (parentBranch) =>
       console.log 'Parent branch:'.green, parentBranch
 
@@ -166,7 +166,7 @@ module.exports = class App
             @gitStashPop()
 
         else
-          console.log 'You don\t want to merge'
+          console.log 'You don\'t want to merge'
 
           @gitStashPop()
 
