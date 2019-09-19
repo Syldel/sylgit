@@ -33,7 +33,7 @@ module.exports = class App
 
 
   initGit: ->
-    console.log '\nInit Git'.cyan
+    #console.log '\nInit Git'.cyan
     deferred = q.defer()
     gitP().cwd process.cwd()
 
@@ -43,7 +43,11 @@ module.exports = class App
       @gitStatus = s
       @currentBranch = s.current
       console.log '\n Current Branch :'.green, @currentBranch
-      deferred.resolve()
+
+      if @currentBranch is 'master'
+        console.log 'You already are in "master"'.red
+      else
+        deferred.resolve()
 
     , (err) ->
       console.log 'err:'.red, err
@@ -87,6 +91,8 @@ module.exports = class App
       prompt.get promptSchema, (err, result) =>
         if err
           console.log 'error:'.red, err
+          if String(err).indexOf('cancel') isnt -1
+            @gitStashPop()
         else
           branch = result.branch
           console.log ' branch:', (branch).cyan
@@ -117,20 +123,11 @@ module.exports = class App
   getClosestParentBranch: ->
     deferred = q.defer()
 
-    #git show-branch | grep '*' | grep -v "$(git rev-parse --abbrev-ref HEAD)" | head -n1 | sed 's/.*\[\(.*\)\].*/\1/' | sed 's/[\^~].*//'
-
-    #gitP().raw ['show-branch']
-    #.then (sb) =>
-    #  console.log 'sb', sb
-
-    child = shell.exec("git show-branch | grep '*' | grep -v `git rev-parse --abbrev-ref HEAD` | head -n1", {async: true})
-       # | sed 's#[.]*\[\(.*\)\][.]*#\1#'")
-       # | sed 's/.*\[\(.*\)\].*/\1/' | sed 's/[\^~].*//\'")
+    child = shell.exec "git show-branch | grep '*' | grep -v `git rev-parse --abbrev-ref HEAD` | head -n1",
+      async: yes
 
     child.stdout.on 'data', (data) ->
-      #console.log 'data:', data
       found = data.match /[.]*\[(.*)\][.]*/
-      #console.log 'found:', found[1]
       branch = found[1]
       if branch
         branch = branch.replace /[\^~].*/, ''
