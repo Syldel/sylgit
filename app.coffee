@@ -134,6 +134,9 @@ module.exports = class App
 
       deferred.resolve branch
 
+    child.stdout.on 'end', () ->
+      deferred.resolve 'master'
+
     deferred.promise
 
 
