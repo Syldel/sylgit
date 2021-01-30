@@ -170,7 +170,9 @@ module.exports = class App
         return
       console.log ' Rebase OK => '.green, r
 
-    @gitStashPop()
+    await @gitStashPop()
+
+    @gitPush()
 
 
   gitStashPop: ->
@@ -186,5 +188,26 @@ module.exports = class App
     else
       console.log '\nDon\'t need to "stash pop"'.yellow
 
+
+  gitPush: ->
+
+    if @options.push
+      try
+        if @options.merge
+          console.log '\ngit push'.blue
+          p = await gitP.push()
+
+        if @options.rebase
+          console.log '\ngit push --force-with-lease'.blue
+          p = await gitP.push '--force-with-lease'
+
+      catch err
+        console.log 'error:'.red, err
+        return
+
+      console.log ' Push OK => '.green, p
+    else
+      console.log '\nNo Push action'.yellow
+      console.log '(Use "-p" or "--push" to push)'.yellow
 
 app = new App()
