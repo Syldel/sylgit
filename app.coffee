@@ -2,185 +2,187 @@ colors = require 'colors'
 prompt = require 'prompt'
 fs = require 'fs'
 q = require 'q'
-gitP = require 'simple-git/promise'
+cmd = require 'cmd-executor'
+gitP = cmd.git
 commandLineArgs = require 'command-line-args'
-shell = require 'shelljs'
 
 module.exports = class App
 
   currentBranch: undefined
-  targetBranch: undefined
-  gitStatus: undefined
   needToStashPop: yes
+  options: undefined
 
   constructor: ->
     console.log 'process.cwd():'.cyan, process.cwd()
+    console.log 'This script will stash/unstash your current work'.blue
+    console.log 'options:'.yellow, '--branch dev --log --merge or --rebase --push', '(-b dev, -l, -m or -r -p)'
 
     optionDefinitions = [
+      { name: 'branch', alias: 'b', type: String }
       { name: 'log', alias: 'l', type: Boolean }
+      { name: 'merge', alias: 'm', type: Boolean }
+      { name: 'rebase', alias: 'r', type: Boolean }
+      { name: 'push', alias: 'p', type: Boolean }
     ]
 
-    options = commandLineArgs optionDefinitions
-    console.log 'options:', options
+    @options = commandLineArgs optionDefinitions
+    console.log '@options:', @options
 
-    @initGit().then () =>
-      if options.log
-        gitP().raw ['--no-pager', 'log', '--graph', '--oneline', '-n', '18']
-        .then (log) ->
-          console.log 'log:', log
-      else
-        @gitStash()
+    if @options.log
+      @logInfos()
+    else
+      if not @options.branch
+        console.log 'please precise branch with "-b dev" or "--branch dev"'
+
+      if not @options.merge and not @options.rebase
+        console.log 'please precise merge or rebase action with "-m / -r" or "--merge / --rebase"'
+
+      if @options.branch and (@options.merge or @options.rebase)
+        @initGit().then () =>
+          @gitStash()
+
+
+  logInfos: ->
+    console.log ('\ngit log').blue
+    try
+      log = await gitP.log '--graph', '--oneline', '-n', '18'
+    catch err
+      console.log 'error:'.red, err
+      return
+
+    console.log log
+    return
 
 
   initGit: ->
     #console.log '\nInit Git'.cyan
     deferred = q.defer()
-    gitP().cwd process.cwd()
 
     console.log ('\ngit status').blue
-    gitP().status().then (s) =>
+    try
+      s = await gitP.status '--show-stash'
+    catch err
+      console.log 'error:'.red, err
+      deferred.reject err
+
+    if not err
       console.log ' Git status:'.green, s
-      @gitStatus = s
-      @currentBranch = s.current
-      console.log '\n Current Branch :'.green, @currentBranch
 
       if @currentBranch is 'master'
-        console.log 'You already are in "master"'.red
+        console.log ' You already are in "master" branch'.red
       else
-        deferred.resolve()
+        if @currentBranch is @options.branch
+          console.log (' You already are in "' + @options.branch + '" branch').red
+        else
 
-    , (err) ->
-      console.log 'err:'.red, err
-      deferred.reject err
+          regEx = new RegExp /On branch ([\w\/-]*)\n/g
+          matchBranch = regEx.exec s
+
+          @currentBranch = matchBranch[1]
+          console.log '\nCurrent Branch :'.green, @currentBranch
+
+          @modifiedOrUntrackedFound = no
+
+          regEx = new RegExp /[^.]*modified:[ ]*([\w\-.]*)\n/g
+          while (matchModified = regEx.exec s) isnt null
+            @modifiedOrUntrackedFound = yes
+
+          regEx = new RegExp /[^.]*Untracked files:\n/g
+          matchUntracked = regEx.exec s
+          if matchUntracked
+            @modifiedOrUntrackedFound = yes
+
+          deferred.resolve()
 
     deferred.promise
 
 
   gitStash: ->
 
-    if @gitStatus.files.length > 0
-
+    if @modifiedOrUntrackedFound
       console.log '\ngit stash push --include-untracked'.blue
-      gitP().stash ['push', '--include-untracked']
-      .then (d) =>
-        console.log ' Stash OK => '.green, d
 
-        if d is 'No local changes to save'
-          @needToStashPop = no
-        @gitCheckout()
+      try
+        d = await gitP.stash 'push', '--include-untracked'
+      catch err
+        console.log 'error:'.red, err
+        return
+
+      console.log ' Stash OK => '.green, d
+
+      if d is 'No local changes to save'
+        @needToStashPop = no
+
+      @gitCheckout()
     else
       @needToStashPop = no
       @gitCheckout()
 
 
   gitCheckout: ->
-    console.log ''
-    @getClosestParentBranch().then (parentBranch) =>
-      console.log 'Parent branch:'.green, parentBranch
+    console.log ('\ngit checkout ' + @options.branch).blue
+    try
+      d = await gitP.checkout @options.branch
+    catch err
+      console.log 'error:'.red, err
+      @gitStashPop()
+      return
+    console.log ' Checkout OK'.green
 
-      console.log '\nWhich branch do you want to merge ?'.magenta
+    console.log ('\ngit pull').blue
+    try
+      p = await gitP.pull()
+    catch err
+      console.log 'error:'.red, err
+      return
+    console.log ' Pull OK => '.green, p
 
-      promptSchema =
-        properties:
-          branch:
-            pattern: /^[a-zA-Z0-9\/\\\-_.:]+$/
-            message: 'Branch must be only letters, numbers and/or dashes, dots'
-            required: true
-            default: parentBranch
+    console.log ('\ngit checkout ' + @currentBranch).blue
+    try
+      c = await gitP.checkout @currentBranch
+    catch err
+      console.log 'error:'.red, err
+      return
+    console.log ' Checkout OK'.green
 
-      prompt.get promptSchema, (err, result) =>
-        if err
-          console.log 'error:'.red, err
-          if String(err).indexOf('cancel') isnt -1
-            @gitStashPop()
-        else
-          branch = result.branch
-          console.log ' branch:', (branch).cyan
-          @targetBranch = branch
+    await @logInfos()
 
-          console.log ('\ngit checkout ' + branch).blue
-          gitP().checkout branch
-          .then (d) =>
-            console.log ' Checkout OK'.green
-
-            console.log ('\ngit pull').blue
-            gitP().pull()
-            .then (p) =>
-              console.log ' Pull OK => '.green, p
-
-              console.log ('\ngit checkout ' + @currentBranch).blue
-              gitP().checkout @currentBranch
-              .then (c) =>
-                console.log ' Checkout OK'.green
-
-                gitP().raw ['--no-pager', 'log', '--graph', '--oneline', '-n', '12']
-                .then (log) =>
-                  console.log 'log:', log
-
-                  @gitMerge()
+    @gitMergeOrRebase()
 
 
-  getClosestParentBranch: ->
-    deferred = q.defer()
+  gitMergeOrRebase: ->
 
-    child = shell.exec "git show-branch | grep '*' | grep -v `git rev-parse --abbrev-ref HEAD` | head -n1",
-      async: yes
-
-    child.stdout.on 'data', (data) ->
-      found = data.match /[.]*\[(.*)\][.]*/
-      branch = found[1]
-      if branch
-        branch = branch.replace /[\^~].*/, ''
-
-      deferred.resolve branch
-
-    child.stdout.on 'end', () ->
-      deferred.resolve 'master'
-
-    deferred.promise
-
-
-  gitMerge: ->
-
-    console.log ('\nAre you sure you want to merge ' + @targetBranch + ' in ' + @currentBranch + ' ?').magenta
-
-    promptSchema =
-      properties:
-        merge:
-          pattern: /^[a-zA-Z]+$/
-          message: 'Answer y/n or yes/no'
-          required: true
-          default: 'no'
-
-    prompt.get promptSchema, (err, result) =>
-      if err
+    if @options.merge
+      console.log ('\ngit merge ' + @options.branch).blue
+      try
+        m = await gitP.merge @options.branch
+      catch err
         console.log 'error:'.red, err
-      else
-        mergeOk = result.merge
-        console.log ' mergeOk:', (mergeOk).cyan
+        return
+      console.log ' Merge OK => '.green, m
 
-        if mergeOk is 'yes' or mergeOk is 'y'
+    if @options.rebase
+      console.log ('\ngit rebase ' + @options.branch).blue
+      try
+        r = await gitP.rebase @options.branch
+      catch err
+        console.log 'error:'.red, err
+        return
+      console.log ' Rebase OK => '.green, r
 
-          console.log ('\ngit merge ' + @targetBranch).blue
-          gitP().merge [@targetBranch]
-          .then (m) =>
-            console.log ' Merge OK => '.green, m
-
-            @gitStashPop()
-
-        else
-          console.log 'You don\'t want to merge'
-
-          @gitStashPop()
+    @gitStashPop()
 
 
   gitStashPop: ->
 
     if @needToStashPop
       console.log '\ngit stash pop'.blue
-      gitP().stash ['pop']
-      .then (p) ->
-        console.log ' Pop OK => '.green, p
+      try
+        p = await gitP.stash 'pop'
+      catch err
+        console.log 'error:'.red, err
+        return
+      console.log ' Stash Pop OK => '.green, p
     else
       console.log '\nDon\'t need to "stash pop"'.yellow
 
