@@ -11,7 +11,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "coffee app.coffee",
     "build": "coffee -c app.coffee",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "watch": "coffee -c gulpfile.coffee && gulp watch"
   },
   "author": "Sylvain D.",
   "license": "ISC",
@@ -29,7 +30,7 @@
     "sylgit": "bin/sylgit.js"
   },
   "devDependencies": {
-    "gulp": "^3.9.1",
+    "gulp": "^4.0.2",
     "gulp-coffee": "^3.0.3",
     "gulp-coffeelint": "^0.6.0"
   }

@@ -18,9 +18,11 @@ gulp.task 'lint', ->
   .pipe(coffeelint())
   .pipe(coffeelint.reporter())
 
-gulp.task 'coffeeBuild', ['lint', 'coffee']
+gulp.task 'coffeeBuild', gulp.series('lint', 'coffee')
 
-gulp.task 'watch', ['coffeeBuild'], ->
-  gulp.watch '*.coffee', ['coffeeBuild']
+gulp.task 'watchCoffee', ->
+  gulp.watch '*.coffee', gulp.series('coffeeBuild')
 
-gulp.task 'default', ['watch']
+gulp.task 'watch', gulp.series 'coffeeBuild', 'watchCoffee'
+
+gulp.task 'default', gulp.series('watch')
