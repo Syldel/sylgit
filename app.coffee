@@ -7,19 +7,19 @@ commandLineArgs = require 'command-line-args'
 module.exports = class App
 
   currentBranch: undefined
+  targetBranch: undefined
   needToStashPop: yes
   options: undefined
 
   constructor: ->
     console.log 'process.cwd():'.cyan, process.cwd()
     console.log 'This script will stash/unstash your current work'.blue
-    console.log 'options:'.yellow, '--branch dev --log --merge or --rebase --push', '(-b dev, -l, -m or -r -p)'
+    console.log 'options:'.yellow, '--log, --merge branch or --rebase branch, --push', '(-l, -m branch or -r branch, -p)'
 
     optionDefinitions = [
-      { name: 'branch', alias: 'b', type: String }
       { name: 'log', alias: 'l', type: Boolean }
-      { name: 'merge', alias: 'm', type: Boolean }
-      { name: 'rebase', alias: 'r', type: Boolean }
+      { name: 'merge', alias: 'm', type: String }
+      { name: 'rebase', alias: 'r', type: String }
       { name: 'push', alias: 'p', type: Boolean }
     ]
 
@@ -29,15 +29,22 @@ module.exports = class App
     if @options.log
       @logInfos()
     else
-      if not @options.branch
-        console.log 'please precise branch with "-b dev" or "--branch dev"'
-
       if not @options.merge and not @options.rebase
-        console.log 'please precise merge or rebase action with "-m / -r" or "--merge / --rebase"'
+        console.log 'please precise "merge" or "rebase" action with "-m branch / -r branch" or "--merge branch / --rebase branch"'.red
+        return
 
-      if @options.branch and (@options.merge or @options.rebase)
-        @initGit().then () =>
-          @gitStash()
+      if @options.merge and @options.rebase
+        console.log 'please choose "merge" or "rebase" action (not both)'.red
+        return
+
+      if @options.merge
+        @targetBranch = @options.merge
+
+      if @options.rebase
+        @targetBranch = @options.rebase
+
+      @initGit().then () =>
+        @gitStash()
 
 
   logInfos: ->
@@ -69,8 +76,8 @@ module.exports = class App
       if @currentBranch is 'master'
         console.log ' You already are in "master" branch'.red
       else
-        if @currentBranch is @options.branch
-          console.log (' You already are in "' + @options.branch + '" branch').red
+        if @currentBranch is @targetBranch
+          console.log (' You already are in "' + @targetBranch + '" branch').red
         else
 
           regEx = new RegExp /On branch ([\w\/-]*)\n/g
@@ -118,9 +125,9 @@ module.exports = class App
 
 
   gitCheckout: ->
-    console.log ('\ngit checkout ' + @options.branch).blue
+    console.log ('\ngit checkout ' + @targetBranch).blue
     try
-      d = await gitP.checkout @options.branch
+      d = await gitP.checkout @targetBranch
     catch err
       console.log 'error:'.red, err
       @gitStashPop()
@@ -151,18 +158,18 @@ module.exports = class App
   gitMergeOrRebase: ->
 
     if @options.merge
-      console.log ('\ngit merge ' + @options.branch).blue
+      console.log ('\ngit merge ' + @targetBranch).blue
       try
-        m = await gitP.merge @options.branch
+        m = await gitP.merge @targetBranch
       catch err
         console.log 'error:'.red, err
         return
       console.log ' Merge OK => '.green, m
 
     if @options.rebase
-      console.log ('\ngit rebase ' + @options.branch).blue
+      console.log ('\ngit rebase ' + @targetBranch).blue
       try
-        r = await gitP.rebase @options.branch
+        r = await gitP.rebase @targetBranch
       catch err
         console.log 'error:'.red, err
         if err.code is 128
@@ -203,6 +210,18 @@ module.exports = class App
 
       catch err
         console.log 'error:'.red, err
+
+        regEx = new RegExp /git push --set-upstream origin/g
+        if regEx.exec err
+          console.log 'no upstream branch error'.cyan
+          try
+            console.log ('\ngit push --set-upstream origin ' + @currentBranch).blue
+            p2 = await gitP.push '--set-upstream origin ' + @currentBranch
+          catch err
+            console.log 'error:'.red, err
+            return
+          console.log ' Push OK => '.green, p2
+
         return
 
       console.log ' Push OK => '.green, p
