@@ -18,12 +18,10 @@
   "license": "ISC",
   "dependencies": {
     "cmd-executor": "^1.1.1",
-    "coffeescript": "^2.4.1",
-    "colors": "^1.1.2",
+    "coffeescript": "^2.5.1",
+    "colors": "^1.4.0",
     "command-line-args": "^5.1.1",
-    "prompt": "^1.0.0",
-    "q": "^1.5.1",
-    "simple-git": "^1.124.0"
+    "q": "^1.5.1"
   },
   "homepage": "https://github.com/Syldel/sylgit#readme",
   "bin": {
