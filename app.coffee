@@ -1,6 +1,4 @@
 colors = require 'colors'
-prompt = require 'prompt'
-fs = require 'fs'
 q = require 'q'
 cmd = require 'cmd-executor'
 gitP = cmd.git
@@ -167,6 +165,8 @@ module.exports = class App
         r = await gitP.rebase @options.branch
       catch err
         console.log 'error:'.red, err
+        if err.code is 128
+          console.log '1. Resolve conflicts\n2. `git rebase --continue`\n3. `git push --force-with-lease`\n4. `git stash pop`'.yellow
         return
       console.log ' Rebase OK => '.green, r
 
