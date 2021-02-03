@@ -1,5 +1,4 @@
 colors = require 'colors'
-q = require 'q'
 cmd = require 'cmd-executor'
 gitP = cmd.git
 commandLineArgs = require 'command-line-args'
@@ -26,8 +25,13 @@ module.exports = class App
     @options = commandLineArgs optionDefinitions
     console.log '@options:', @options
 
+    @init()
+
+
+  init: ->
     if @options.log
-      @logInfos()
+      log = await @logInfos()
+      console.log log
     else
       if not @options.merge and not @options.rebase
         console.log 'please precise "merge" or "rebase" action with "-m branch / -r branch" or "--merge branch / --rebase branch"'.red
@@ -43,8 +47,19 @@ module.exports = class App
       if @options.rebase
         @targetBranch = @options.rebase
 
-      @initGit().then () =>
-        @gitStash()
+
+      @currentBranch = await @initGit()
+      if @currentBranch
+        if @currentBranch is 'master'
+          console.log ' You already are in "master" branch'.red
+        else
+          if @currentBranch is @targetBranch
+            console.log (' You already are in "' + @targetBranch + '" branch').red
+          else
+            @gitStash()
+
+      else
+        console.log ' current branch no found!'.red
 
 
   logInfos: ->
@@ -53,53 +68,39 @@ module.exports = class App
       log = await gitP.log '--graph', '--oneline', '-n', '18'
     catch err
       console.log 'error:'.red, err
-      return
+      throw err
 
-    console.log log
-    return
+    log
 
 
   initGit: ->
-    #console.log '\nInit Git'.cyan
-    deferred = q.defer()
-
     console.log ('\ngit status').blue
     try
       s = await gitP.status '--show-stash'
     catch err
       console.log 'error:'.red, err
-      deferred.reject err
+      throw err
 
-    if not err
-      console.log ' Git status:'.green, s
+    console.log ' Git status:'.green, s
 
-      if @currentBranch is 'master'
-        console.log ' You already are in "master" branch'.red
-      else
-        if @currentBranch is @targetBranch
-          console.log (' You already are in "' + @targetBranch + '" branch').red
-        else
+    regEx = new RegExp /On branch ([\w\/-]*)\n/g
+    matchBranch = regEx.exec s
 
-          regEx = new RegExp /On branch ([\w\/-]*)\n/g
-          matchBranch = regEx.exec s
+    currentBranch = matchBranch[1]
+    console.log '\nCurrent Branch :'.green, currentBranch
 
-          @currentBranch = matchBranch[1]
-          console.log '\nCurrent Branch :'.green, @currentBranch
+    @modifiedOrUntrackedFound = no
 
-          @modifiedOrUntrackedFound = no
+    regEx = new RegExp /[^.]*modified:[ ]*([\w\-.\/]*)\n/g
+    while (matchModified = regEx.exec s) isnt null
+      @modifiedOrUntrackedFound = yes
 
-          regEx = new RegExp /[^.]*modified:[ ]*([\w\-.]*)\n/g
-          while (matchModified = regEx.exec s) isnt null
-            @modifiedOrUntrackedFound = yes
+    regEx = new RegExp /[^.]*Untracked files:\n/g
+    matchUntracked = regEx.exec s
+    if matchUntracked
+      @modifiedOrUntrackedFound = yes
 
-          regEx = new RegExp /[^.]*Untracked files:\n/g
-          matchUntracked = regEx.exec s
-          if matchUntracked
-            @modifiedOrUntrackedFound = yes
-
-          deferred.resolve()
-
-    deferred.promise
+    currentBranch
 
 
   gitStash: ->
@@ -111,7 +112,7 @@ module.exports = class App
         d = await gitP.stash 'push', '--include-untracked'
       catch err
         console.log 'error:'.red, err
-        return
+        throw err
 
       console.log ' Stash OK => '.green, d
 
@@ -131,7 +132,7 @@ module.exports = class App
     catch err
       console.log 'error:'.red, err
       @gitStashPop()
-      return
+      throw err
     console.log ' Checkout OK'.green
 
     console.log ('\ngit pull').blue
@@ -139,7 +140,7 @@ module.exports = class App
       p = await gitP.pull()
     catch err
       console.log 'error:'.red, err
-      return
+      throw err
     console.log ' Pull OK => '.green, p
 
     console.log ('\ngit checkout ' + @currentBranch).blue
@@ -147,10 +148,11 @@ module.exports = class App
       c = await gitP.checkout @currentBranch
     catch err
       console.log 'error:'.red, err
-      return
+      throw err
     console.log ' Checkout OK'.green
 
-    await @logInfos()
+    log = await @logInfos()
+    console.log log
 
     @gitMergeOrRebase()
 
@@ -163,7 +165,7 @@ module.exports = class App
         m = await gitP.merge @targetBranch
       catch err
         console.log 'error:'.red, err
-        return
+        throw err
       console.log ' Merge OK => '.green, m
 
     if @options.rebase
@@ -174,10 +176,13 @@ module.exports = class App
         console.log 'error:'.red, err
         if err.code is 128
           console.log '1. Resolve conflicts\n2. `git rebase --continue`\n3. `git push --force-with-lease`\n4. `git stash pop`'.yellow
-        return
+        throw err
       console.log ' Rebase OK => '.green, r
 
-    await @gitStashPop()
+    try
+      await @gitStashPop()
+    catch err
+      throw err
 
     @gitPush()
 
@@ -190,7 +195,7 @@ module.exports = class App
         p = await gitP.stash 'pop'
       catch err
         console.log 'error:'.red, err
-        return
+        throw err
       console.log ' Stash Pop OK => '.green, p
     else
       console.log '\nDon\'t need to "stash pop"'.yellow
@@ -219,10 +224,10 @@ module.exports = class App
             p2 = await gitP.push '--set-upstream origin ' + @currentBranch
           catch err
             console.log 'error:'.red, err
-            return
+            throw err
           console.log ' Push OK => '.green, p2
 
-        return
+        throw err
 
       console.log ' Push OK => '.green, p
     else

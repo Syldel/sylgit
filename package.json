@@ -20,8 +20,7 @@
     "cmd-executor": "^1.1.1",
     "coffeescript": "^2.5.1",
     "colors": "^1.4.0",
-    "command-line-args": "^5.1.1",
-    "q": "^1.5.1"
+    "command-line-args": "^5.1.1"
   },
   "homepage": "https://github.com/Syldel/sylgit#readme",
   "bin": {
