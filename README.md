@@ -1,5 +1,27 @@
 # Sylgit Tools
 
+This script will stash/unstash your current work
+
+### How to use
+
+##### Command arguments :
+
+--log, --merge branch or --rebase branch, --push
+Or :
+-l, -m branch or -r branch, -p
+
+To rebase "master" branch and push with --force-with-lease
+
+```
+sylgit -r master -p
+```
+
+To merge "master" branch and push
+
+```
+sylgit -m master -p
+```
+
 ### Requirements
 
 You need to have node
