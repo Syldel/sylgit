@@ -13,7 +13,8 @@ module.exports = class App
   constructor: ->
     console.log 'process.cwd():'.cyan, process.cwd()
     console.log 'This script will stash/unstash your current work'.blue
-    console.log 'options:'.yellow, '--log, --merge branch or --rebase branch, --push', '(-l, -m branch or -r branch, -p)'
+    console.log 'options:'.yellow, '--log, --merge branch or --rebase branch, --push'
+    console.log '        '.yellow, ' -l  ,  -m branch     or  -r branch     ,  -p'
 
     optionDefinitions = [
       { name: 'log', alias: 'l', type: Boolean }
@@ -33,33 +34,35 @@ module.exports = class App
       log = await @logInfos()
       console.log log
     else
-      if not @options.merge and not @options.rebase
-        console.log 'please precise "merge" or "rebase" action with "-m branch / -r branch" or "--merge branch / --rebase branch"'.red
-        return
 
       if @options.merge and @options.rebase
         console.log 'please choose "merge" or "rebase" action (not both)'.red
         return
 
-      if @options.merge
-        @targetBranch = @options.merge
+      if @options.merge or @options.rebase
+        if @options.merge
+          @targetBranch = @options.merge
 
-      if @options.rebase
-        @targetBranch = @options.rebase
+        if @options.rebase
+          @targetBranch = @options.rebase
 
 
-      @currentBranch = await @initGit()
-      if @currentBranch
-        if @currentBranch is 'master'
-          console.log ' You already are in "master" branch'.red
-        else
-          if @currentBranch is @targetBranch
-            console.log (' You already are in "' + @targetBranch + '" branch').red
+        @currentBranch = await @initGit()
+        if @currentBranch
+          if @currentBranch is 'master'
+            console.log ' You already are in "master" branch'.red
           else
-            @gitStash()
+            if @currentBranch is @targetBranch
+              console.log (' You already are in "' + @targetBranch + '" branch').red
+            else
+              @gitStash()
+
+        else
+          console.log ' current branch no found!'.red
 
       else
-        console.log ' current branch no found!'.red
+        if @options.push
+          @gitPush()
 
 
   logInfos: ->
@@ -184,7 +187,11 @@ module.exports = class App
     catch err
       throw err
 
-    @gitPush()
+    if @options.push
+      @gitPush()
+    else
+      console.log '\nNo Push action'.yellow
+      console.log '(Use "-p" or "--push" to push)'.yellow
 
 
   gitStashPop: ->
@@ -203,35 +210,32 @@ module.exports = class App
 
   gitPush: ->
 
-    if @options.push
-      try
-        if @options.merge
-          console.log '\ngit push'.blue
-          p = await gitP.push()
+    try
+      if @options.merge
+        console.log '\ngit push'.blue
+        p = await gitP.push()
 
-        if @options.rebase
-          console.log '\ngit push --force-with-lease'.blue
-          p = await gitP.push '--force-with-lease'
+      if @options.rebase
+        console.log '\ngit push --force-with-lease'.blue
+        p = await gitP.push '--force-with-lease'
 
-      catch err
-        console.log 'error:'.red, err
+    catch err
+      console.log 'error:'.red, err
 
-        regEx = new RegExp /git push --set-upstream origin/g
-        if regEx.exec err
-          console.log 'no upstream branch error'.cyan
-          try
-            console.log ('\ngit push --set-upstream origin ' + @currentBranch).blue
-            p2 = await gitP.push '--set-upstream origin ' + @currentBranch
-          catch err
-            console.log 'error:'.red, err
-            throw err
-          console.log ' Push OK => '.green, p2
+      regEx = new RegExp /git push --set-upstream origin/g
+      if regEx.exec err
+        console.log 'no upstream branch error'.cyan
+        try
+          console.log ('\ngit push --set-upstream origin ' + @currentBranch).blue
+          p2 = await gitP.push '--set-upstream origin ' + @currentBranch
+        catch err
+          console.log 'error:'.red, err
+          throw err
+        console.log ' Push OK => '.green, p2
 
-        throw err
+      throw err
 
-      console.log ' Push OK => '.green, p
-    else
-      console.log '\nNo Push action'.yellow
-      console.log '(Use "-p" or "--push" to push)'.yellow
+    console.log ' Push OK => '.green, p
+
 
 app = new App()
