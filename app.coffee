@@ -5,16 +5,16 @@ commandLineArgs = require 'command-line-args'
 
 module.exports = class App
 
+  remoteName: 'origin'
   currentBranch: undefined
   targetBranch: undefined
-  needToStashPop: yes
   options: undefined
 
   constructor: ->
-    console.log 'process.cwd():'.cyan, process.cwd()
-    console.log 'This script will stash/unstash your current work'.blue
-    console.log 'options:'.yellow, '--log, --merge branch or --rebase branch, --push'
-    console.log '        '.yellow, ' -l  ,  -m branch     or  -r branch     ,  -p'
+    #console.log 'process.cwd():'.cyan, process.cwd()
+    console.log 'This script will stash/unstash your current work (--autostash)'.blue
+    console.log 'options:'.yellow, '--log, --merge branch or --rebase branch or --rebase, --push'
+    console.log '        '.yellow, ' -l  ,  -m branch     or  -r branch      or  -r     ,  -p'
 
     optionDefinitions = [
       { name: 'log', alias: 'l', type: Boolean }
@@ -39,30 +39,63 @@ module.exports = class App
         console.log 'please choose "merge" or "rebase" action (not both)'.red
         return
 
-      if @options.merge or @options.rebase
-        if @options.merge
-          @targetBranch = @options.merge
 
-        if @options.rebase
-          @targetBranch = @options.rebase
+      if @options.rebase is null
 
-
-        @currentBranch = await @initGit()
-        if @currentBranch
-          if @currentBranch is 'master'
-            console.log ' You already are in "master" branch'.red
-          else
-            if @currentBranch is @targetBranch
-              console.log (' You already are in "' + @targetBranch + '" branch').red
-            else
-              @gitStash()
-
-        else
-          console.log ' current branch no found!'.red
+        try
+          await @gitPull()
+        catch err
+          #console.log 'error:'.red, err
+          throw err
 
       else
-        if @options.push
-          @gitPush()
+        if @options.merge or @options.rebase
+
+          if @options.merge
+            @targetBranch = @options.merge
+
+          if @options.rebase
+            @targetBranch = @options.rebase
+
+          try
+            await @gitFetch @remoteName + ' ' + @targetBranch
+          catch err
+            #console.log 'error:'.red, err
+            throw err
+
+          try
+            if @options.merge
+              await @gitMerge @targetBranch + ' --autostash'
+            if @options.rebase
+              await @gitRebase @targetBranch + ' --autostash'
+          catch err
+            #console.log 'error:'.red, err
+            console.log '1. Resolve conflicts'
+            if @options.merge
+              console.log '2. `git push`'.yellow
+            if @options.rebase
+              console.log '2. `git rebase --continue`\n3. `git push --force-with-lease`'.yellow
+            throw err
+
+          ###
+          @currentBranch = await @initGit()
+          if @currentBranch
+            if @currentBranch is 'master'
+              console.log ' You already are in "master" branch'.red
+            else
+              if @currentBranch is @targetBranch
+                console.log (' You already are in "' + @targetBranch + '" branch').red
+              else
+                @gitStash()
+
+          else
+            console.log ' current branch no found!'.red
+          ###
+
+
+      console.log 'push?'
+      if @options.push
+        @gitPush()
 
 
   logInfos: ->
@@ -70,42 +103,52 @@ module.exports = class App
     try
       log = await gitP.log '--graph', '--oneline', '-n', '18'
     catch err
-      console.log 'error:'.red, err
+      #console.log 'error:'.red, err
       throw err
 
     log
 
 
-  initGit: ->
+  gitStatus: ->
     console.log ('\ngit status').blue
-    try
-      s = await gitP.status '--show-stash'
-    catch err
-      console.log 'error:'.red, err
-      throw err
 
-    console.log ' Git status:'.green, s
+    if @currentBranch
+      cBranch = @currentBranch
+    else
 
-    regEx = new RegExp /On branch ([\w\/-]*)\n/g
-    matchBranch = regEx.exec s
+      try
+        s = await gitP.status '--show-stash'
+      catch err
+        #console.log 'error:'.red, err
+        throw err
 
-    currentBranch = matchBranch[1]
-    console.log '\nCurrent Branch :'.green, currentBranch
+      console.log ' Git status:'.green, s
 
-    @modifiedOrUntrackedFound = no
+      regEx = new RegExp /On branch ([\w\/-]*)\n/g
+      matchBranch = regEx.exec s
 
-    regEx = new RegExp /[^.]*modified:[ ]*([\w\-.\/]*)\n/g
-    while (matchModified = regEx.exec s) isnt null
-      @modifiedOrUntrackedFound = yes
+      cBranch = matchBranch[1]
+      console.log '\nCurrent Branch :'.green, cBranch
 
-    regEx = new RegExp /[^.]*Untracked files:\n/g
-    matchUntracked = regEx.exec s
-    if matchUntracked
-      @modifiedOrUntrackedFound = yes
+      ###
+      @modifiedOrUntrackedFound = no
 
-    currentBranch
+      regEx = new RegExp /[^.]*modified:[ ]*([\w\-.\/]*)\n/g
+      while (matchModified = regEx.exec s) isnt null
+        @modifiedOrUntrackedFound = yes
+
+      regEx = new RegExp /[^.]*Untracked files:\n/g
+      matchUntracked = regEx.exec s
+      if matchUntracked
+        @modifiedOrUntrackedFound = yes
+      ###
+
+      @currentBranch = cBranch
+
+    cBranch
 
 
+  ###
   gitStash: ->
 
     if @modifiedOrUntrackedFound
@@ -126,14 +169,15 @@ module.exports = class App
     else
       @needToStashPop = no
       @gitCheckout()
+  ###
 
-
+  ###
   gitCheckout: ->
     console.log ('\ngit checkout ' + @targetBranch).blue
     try
       d = await gitP.checkout @targetBranch
     catch err
-      console.log 'error:'.red, err
+      #console.log 'error:'.red, err
       @gitStashPop()
       throw err
     console.log ' Checkout OK'.green
@@ -192,8 +236,9 @@ module.exports = class App
     else
       console.log '\nNo Push action'.yellow
       console.log '(Use "-p" or "--push" to push)'.yellow
+  ###
 
-
+  ###
   gitStashPop: ->
 
     if @needToStashPop
@@ -206,36 +251,109 @@ module.exports = class App
       console.log ' Stash Pop OK => '.green, p
     else
       console.log '\nDon\'t need to "stash pop"'.yellow
+  ###
 
-
-  gitPush: ->
+  gitPull: (pArgs = '--rebase --autostash') ->
+    console.log '\ngit pull'.blue, String(pArgs).blue
 
     try
-      if @options.merge
-        console.log '\ngit push'.blue
-        p = await gitP.push()
-
-      if @options.rebase
-        console.log '\ngit push --force-with-lease'.blue
-        p = await gitP.push '--force-with-lease'
-
+      p = await gitP.pull pArgs
     catch err
-      console.log 'error:'.red, err
+      #console.log 'error:'.red, err
+      #console.log 'err.code:'.red, err.code
+      throw err
 
-      regEx = new RegExp /git push --set-upstream origin/g
-      if regEx.exec err
-        console.log 'no upstream branch error'.cyan
-        try
-          console.log ('\ngit push --set-upstream origin ' + @currentBranch).blue
-          p2 = await gitP.push '--set-upstream origin ' + @currentBranch
-        catch err
-          console.log 'error:'.red, err
-          throw err
-        console.log ' Push OK => '.green, p2
+    console.log ' Pull OK => '.green, p
+    p
+
+
+  gitFetch: (pArgs = '') ->
+    console.log '\ngit fetch'.blue, String(pArgs).blue
+
+    try
+      f = await gitP.fetch pArgs
+    catch err
+      #console.log 'error:'.red, err
+      #console.log 'err.code:'.red, err.code
+      throw err
+
+    console.log ' Fetch OK => '.green, f
+    f
+
+
+  gitRebase: (pArgs = '') ->
+    console.log '\ngit rebase'.blue, String(pArgs).blue
+
+    try
+      r = await gitP.rebase pArgs
+    catch err
+      #console.log 'error:'.red, err
+      throw err
+
+    console.log ' Rebase OK => '.green, r
+    r
+
+
+  gitMerge: (pArgs = '') ->
+    console.log '\ngit merge'.blue, String(pArgs).blue
+
+    try
+      m = await gitP.merge pArgs
+    catch err
+      #console.log 'error:'.red, err
+      throw err
+
+    console.log ' Merge OK => '.green, m
+    m
+
+
+  gitPush: (pArgs = '') ->
+    # Possible args:
+    #  --force-with-lease
+    #  --set-upstream origin branch
+
+    console.log '\ngit push'.blue, String(pArgs).blue
+
+    try
+      p = await gitP.push pArgs
+    catch err
+      #console.log 'error:'.red, err
+      try
+        c = await @checkUpStream pArgs, err
+      catch err
+        throw err
+
+      # Check --force-with-lease
+
+      if c
+        return c
 
       throw err
 
     console.log ' Push OK => '.green, p
+    p
+
+
+  checkUpStream: (pArgs, pErr) ->
+    regEx = new RegExp /git push --set-upstream/g
+    if regEx.exec pErr
+      console.log '=> no upstream branch error'.cyan
+
+      if pArgs.indexOf '--set-upstream' is -1 and pArgs.indexOf '-u' is -1
+        try
+          # Get branch name
+          b = await @gitStatus()
+        catch err
+          #console.log 'error:'.red, err
+          throw err
+
+        try
+          p = await @gitPush '--set-upstream ' + @remoteName + ' ' + b
+        catch err
+          #console.log 'error:'.red, err
+          throw err
+
+    p
 
 
 app = new App()
