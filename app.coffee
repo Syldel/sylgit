@@ -334,6 +334,11 @@ module.exports = class App
       catch err
         throw err
 
+      try
+        c = await @checkBehindBranch err
+      catch err
+        throw err
+
       # Check --force-with-lease
 
       if c
@@ -363,6 +368,26 @@ module.exports = class App
         catch err
           #console.log 'error:'.red, err
           throw err
+
+    p
+
+
+  checkBehindBranch: (pErr) ->
+    regEx = new RegExp /Updates were rejected because the tip of your current branch is behind/g
+    if regEx.exec pErr
+      console.log '=> your current branch is behind!'.cyan
+
+      try
+        r = await @gitRebase @targetBranch + ' --autostash'
+      catch err
+        #console.log 'error:'.red, err
+        throw err
+
+      try
+        p = await @gitPush()
+      catch err
+        #console.log 'error:'.red, err
+        throw err
 
     p
 
