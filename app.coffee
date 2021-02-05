@@ -13,11 +13,11 @@ module.exports = class App
   constructor: ->
     #console.log 'process.cwd():'.cyan, process.cwd()
     console.log 'This script will stash/unstash your current work (--autostash)'.blue
-    console.log 'options:'.yellow, '--log, --merge branch or --rebase branch or --rebase, --push'
-    console.log '        '.yellow, ' -l  ,  -m branch     or  -r branch      or  -r     ,  -p'
+    console.log 'options:'.yellow, '--log (branch), --merge branch or --rebase (branch), --push'
+    console.log '        '.yellow, ' -l (branch)  ,  -m branch     or  -r (branch)     ,  -p'
 
     optionDefinitions = [
-      { name: 'log', alias: 'l', type: Boolean }
+      { name: 'log', alias: 'l', type: String }
       { name: 'merge', alias: 'm', type: String }
       { name: 'rebase', alias: 'r', type: String }
       { name: 'push', alias: 'p', type: Boolean }
@@ -30,78 +30,87 @@ module.exports = class App
 
 
   init: ->
-    if @options.log
-      log = await @logInfos()
+    if @options.merge and @options.rebase
+      console.log 'please choose "merge" or "rebase" action (not both)'.red
+      return
+
+    if @options.log isnt undefined
+      log = await @logInfos @options.log
       console.log log
+
+    if @options.rebase is null
+
+      try
+        await @gitPull()
+      catch err
+        #console.log 'error:'.red, err
+        throw err
+
     else
+      if @options.merge or @options.rebase
 
-      if @options.merge and @options.rebase
-        console.log 'please choose "merge" or "rebase" action (not both)'.red
-        return
+        if @options.merge
+          @targetBranch = @options.merge
 
-
-      if @options.rebase is null
+        if @options.rebase
+          @targetBranch = @options.rebase
 
         try
-          await @gitPull()
+          # Example : `git fetch origin +seen:seen maint:tmp`
+          # This updates (or creates, as necessary) branches seen and tmp in the local repository
+          # The seen branch will be updated even if it does not fast-forward, because it is prefixed with a plus sign; tmp will not be.
+          await @gitFetch @remoteName + ' +' + @targetBranch + ':' + @targetBranch
         catch err
           #console.log 'error:'.red, err
           throw err
 
-      else
-        if @options.merge or @options.rebase
-
+        try
           if @options.merge
-            @targetBranch = @options.merge
-
+            await @gitMerge @targetBranch + ' --autostash'
           if @options.rebase
-            @targetBranch = @options.rebase
+            await @gitRebase @targetBranch + ' --autostash'
+        catch err
+          #console.log 'error:'.red, err
+          console.log '1. Resolve conflicts'
+          if @options.merge
+            console.log '2. `git push`'.yellow
+          if @options.rebase
+            console.log '2. `git rebase --continue`\n3. `git push --force-with-lease`'.yellow
+          throw err
 
-          try
-            await @gitFetch @remoteName + ' ' + @targetBranch
-          catch err
-            #console.log 'error:'.red, err
-            throw err
-
-          try
-            if @options.merge
-              await @gitMerge @targetBranch + ' --autostash'
-            if @options.rebase
-              await @gitRebase @targetBranch + ' --autostash'
-          catch err
-            #console.log 'error:'.red, err
-            console.log '1. Resolve conflicts'
-            if @options.merge
-              console.log '2. `git push`'.yellow
-            if @options.rebase
-              console.log '2. `git rebase --continue`\n3. `git push --force-with-lease`'.yellow
-            throw err
-
-          ###
-          @currentBranch = await @initGit()
-          if @currentBranch
-            if @currentBranch is 'master'
-              console.log ' You already are in "master" branch'.red
-            else
-              if @currentBranch is @targetBranch
-                console.log (' You already are in "' + @targetBranch + '" branch').red
-              else
-                @gitStash()
-
+        ###
+        @currentBranch = await @initGit()
+        if @currentBranch
+          if @currentBranch is 'master'
+            console.log ' You already are in "master" branch'.red
           else
-            console.log ' current branch no found!'.red
-          ###
+            if @currentBranch is @targetBranch
+              console.log (' You already are in "' + @targetBranch + '" branch').red
+            else
+              @gitStash()
+
+        else
+          console.log ' current branch no found!'.red
+        ###
 
 
       console.log 'push?'
       if @options.push
-        @gitPush()
+        try
+          await @gitPush()
+        catch err
+          throw err
 
 
-  logInfos: ->
-    console.log ('\ngit log').blue
+      if @options.log isnt undefined and (@options.rebase isnt undefined or @options.merge)
+        log = await @logInfos @options.log
+        console.log log
+
+
+  logInfos: (pArgs = '') ->
+    console.log ('\ngit log').blue, String(if pArgs then pArgs else '').blue
     try
-      log = await gitP.log '--graph', '--oneline', '-n', '18'
+      log = await gitP.log pArgs, '--graph', '--oneline', '-n', '18', '--decorate'
     catch err
       #console.log 'error:'.red, err
       throw err
