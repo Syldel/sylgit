@@ -1,30 +1,36 @@
 # Sylgit Tools
 
-This script will stash/unstash your current work
+This script will stash/unstash your current work.
+
+Good to know :
+
+Since `Git 2.6` you can use the autostash option to automatically stash and pop your uncommitted changes. (`--autostash`)
 
 ### How to use
 
 ##### Command arguments :
 
---log, --merge branch or --rebase branch, --push
+--log (branch), --merge branch or --rebase (branch), --push
+
 Or :
--l, -m branch or -r branch, -p
+
+ -l (branch)  ,  -m branch     or  -r (branch)     ,  -p
 
 To rebase "master" branch and push with --force-with-lease
 
 ```
-sylgit -r master -p
+sylgit -r master -p -l
 ```
 
 To merge "master" branch and push
 
 ```
-sylgit -m master -p
+sylgit -m master -p -l
 ```
 
 ### Requirements
 
-You need to have node
+You need to have node and git (> 2.6)
 
 ### Installation
 
