@@ -44,6 +44,7 @@ module.exports = class App
         await @gitPull()
       catch err
         #console.log 'error:'.red, err
+        @checkConflicts err
         throw err
 
     else
@@ -70,8 +71,9 @@ module.exports = class App
           if @options.rebase
             await @gitRebase @targetBranch + ' --autostash'
         catch err
+          @checkConflicts err
           #console.log 'error:'.red, err
-          console.log '1. Resolve conflicts'
+          console.log '1. Resolve conflicts'.yellow
           if @options.merge
             console.log '2. `git push`'.yellow
           if @options.rebase
@@ -363,6 +365,13 @@ module.exports = class App
           throw err
 
     p
+
+
+  checkConflicts: (pErr) ->
+    regEx = new RegExp /error: Failed to merge in the changes./g
+    regEx2 = new RegExp /error: Pulling is not possible because you have unmerged files./g
+    if regEx.exec(pErr) or regEx2.exec(pErr)
+      console.log '=> You have to resolve conflicts!'.cyan
 
 
 app = new App()
