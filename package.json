@@ -1,6 +1,6 @@
 {
   "name": "sylgit",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Use git faster",
   "main": "app.js",
   "repository": {
