@@ -96,7 +96,6 @@ module.exports = class App
         ###
 
 
-      console.log 'push?'
       if @options.push
         try
           await @gitPush()
@@ -335,14 +334,17 @@ module.exports = class App
         throw err
 
       try
-        c = await @checkBehindBranch err
+        b = await @checkBehindBranch pArgs, err
       catch err
         throw err
 
-      # Check --force-with-lease
+      try
+        n = await @checkNewWork err
+      catch err
+        throw err
 
-      if c
-        return c
+      if c or b or n
+        return c or b or n
 
       throw err
 
@@ -372,13 +374,42 @@ module.exports = class App
     p
 
 
-  checkBehindBranch: (pErr) ->
+  checkBehindBranch: (pArgs, pErr) ->
     regEx = new RegExp /Updates were rejected because the tip of your current branch is behind/g
     if regEx.exec pErr
       console.log '=> your current branch is behind!'.cyan
 
+      if @options.rebase and pArgs.indexOf '--force-with-lease' is -1
+        try
+          p = await @gitPush '--force-with-lease'
+        catch err
+          #console.log 'error:'.red, err
+          throw err
+
+        return p
+
+      if not @options.rebase
+        try
+          b = await @gitPull '--rebase --autostash'
+        catch err
+          #console.log 'error:'.red, err
+          throw err
+
+        return b
+
+      console.log '   `git pull --rebase --autostash`\nor `git push --force-with-lease`'.yellow
+      return yes
+
+    no
+
+
+  checkNewWork: (pErr) ->
+    regEx = new RegExp /Updates were rejected because the remote contains work that you do/g
+    if regEx.exec pErr
+      console.log '=> your current branch contains work that you do!'.cyan
+
       try
-        r = await @gitRebase @targetBranch + ' --autostash'
+        b = await @gitPull '--rebase --autostash'
       catch err
         #console.log 'error:'.red, err
         throw err
