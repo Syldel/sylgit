@@ -80,21 +80,6 @@ module.exports = class App
             console.log '2. `git rebase --continue`\n3. `git push --force-with-lease`'.yellow
           throw err
 
-        ###
-        @currentBranch = await @initGit()
-        if @currentBranch
-          if @currentBranch is 'master'
-            console.log ' You already are in "master" branch'.red
-          else
-            if @currentBranch is @targetBranch
-              console.log (' You already are in "' + @targetBranch + '" branch').red
-            else
-              @gitStash()
-
-        else
-          console.log ' current branch no found!'.red
-        ###
-
 
       if @options.push
         try
@@ -157,111 +142,6 @@ module.exports = class App
 
     cBranch
 
-
-  ###
-  gitStash: ->
-
-    if @modifiedOrUntrackedFound
-      console.log '\ngit stash push --include-untracked'.blue
-
-      try
-        d = await gitP.stash 'push', '--include-untracked'
-      catch err
-        console.log 'error:'.red, err
-        throw err
-
-      console.log ' Stash OK => '.green, d
-
-      if d is 'No local changes to save'
-        @needToStashPop = no
-
-      @gitCheckout()
-    else
-      @needToStashPop = no
-      @gitCheckout()
-  ###
-
-  ###
-  gitCheckout: ->
-    console.log ('\ngit checkout ' + @targetBranch).blue
-    try
-      d = await gitP.checkout @targetBranch
-    catch err
-      #console.log 'error:'.red, err
-      @gitStashPop()
-      throw err
-    console.log ' Checkout OK'.green
-
-    console.log ('\ngit pull').blue
-    try
-      p = await gitP.pull()
-    catch err
-      console.log 'error:'.red, err
-      throw err
-    console.log ' Pull OK => '.green, p
-
-    console.log ('\ngit checkout ' + @currentBranch).blue
-    try
-      c = await gitP.checkout @currentBranch
-    catch err
-      console.log 'error:'.red, err
-      throw err
-    console.log ' Checkout OK'.green
-
-    log = await @logInfos()
-    console.log log
-
-    @gitMergeOrRebase()
-
-
-  gitMergeOrRebase: ->
-
-    if @options.merge
-      console.log ('\ngit merge ' + @targetBranch).blue
-      try
-        m = await gitP.merge @targetBranch
-      catch err
-        console.log 'error:'.red, err
-        throw err
-      console.log ' Merge OK => '.green, m
-
-    if @options.rebase
-      console.log ('\ngit rebase ' + @targetBranch).blue
-      try
-        r = await gitP.rebase @targetBranch
-      catch err
-        console.log 'error:'.red, err
-        if err.code is 128
-          console.log '1. Resolve conflicts\n2. `git rebase --continue`\n3. `git push --force-with-lease`\n4. `git stash pop`'.yellow
-        throw err
-      console.log ' Rebase OK => '.green, r
-
-    try
-      await @gitStashPop()
-    catch err
-      throw err
-
-    if @options.push
-      @gitPush()
-    else
-      console.log '\nNo Push action'.yellow
-      console.log '(Use "-p" or "--push" to push)'.yellow
-  ###
-
-  ###
-  gitStashPop: ->
-
-    if @needToStashPop
-      console.log '\ngit stash pop'.blue
-      try
-        p = await gitP.stash 'pop'
-      catch err
-        console.log 'error:'.red, err
-        throw err
-      console.log ' Stash Pop OK => '.green, p
-    else
-      console.log '\nDon\'t need to "stash pop"'.yellow
-  ###
 
   gitPull: (pArgs = '--rebase --autostash') ->
     console.log '\ngit pull'.blue, String(pArgs).blue
