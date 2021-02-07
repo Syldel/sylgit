@@ -32,16 +32,22 @@ Or :
 
  -l (branch)  ,  -m branch     or  -r (branch)     ,  -p
 
-To rebase "master" branch and push with --force-with-lease
+To rebase "master" branch and push showing logs
 
 ```
 sylgit -r master -p -l
 ```
 
-To merge "master" branch and push
+To merge "master" branch and push showing logs
 
 ```
 sylgit -m master -p -l
+```
+
+To rebase current branch and show logs
+
+```
+sylgit -r -l
 ```
 
 ### Requirements
