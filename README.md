@@ -1,10 +1,26 @@
 # Sylgit Tools
 
-This script will stash/unstash your current work.
+This script allows to "rebase" in an easier way.
 
-Good to know :
+### Good to know :
 
 Since `Git 2.6` you can use the autostash option to automatically stash and pop your uncommitted changes. (`--autostash`)
+
+##### pull.rebase and rebase.autoStash git config
+
+Instead of invoking this option manually, you can also set this for your repository with git config:
+
+```
+$ git config pull.rebase true
+$ git config rebase.autoStash true
+```
+Or you can set this globally for every Git repository:
+
+```
+$ git config --global pull.rebase true
+$ git config --global rebase.autoStash true
+```
+The --autostash option only works with --rebase, so it makes sense to set these two together. 
 
 ### How to use
 
