@@ -38,8 +38,7 @@ module.exports = class App
       log = await @logInfos @options.log
       console.log log
 
-    if @options.rebase is null
-
+    if @options.rebase isnt undefined
       try
         await @gitPull()
       catch err
@@ -47,50 +46,49 @@ module.exports = class App
         @checkConflicts err
         throw err
 
-    else
-      if @options.merge or @options.rebase
+    if @options.merge or @options.rebase
 
+      if @options.merge
+        @targetBranch = @options.merge
+
+      if @options.rebase
+        @targetBranch = @options.rebase
+
+      try
+        # Example : `git fetch origin +seen:seen maint:tmp`
+        # This updates (or creates, as necessary) branches seen and tmp in the local repository
+        # The seen branch will be updated even if it does not fast-forward, because it is prefixed with a plus sign; tmp will not be.
+        await @gitFetch @remoteName + ' +' + @targetBranch + ':' + @targetBranch
+      catch err
+        #console.log 'error:'.red, err
+        throw err
+
+      try
         if @options.merge
-          @targetBranch = @options.merge
-
+          await @gitMerge @targetBranch + ' --autostash'
         if @options.rebase
-          @targetBranch = @options.rebase
-
-        try
-          # Example : `git fetch origin +seen:seen maint:tmp`
-          # This updates (or creates, as necessary) branches seen and tmp in the local repository
-          # The seen branch will be updated even if it does not fast-forward, because it is prefixed with a plus sign; tmp will not be.
-          await @gitFetch @remoteName + ' +' + @targetBranch + ':' + @targetBranch
-        catch err
-          #console.log 'error:'.red, err
-          throw err
-
-        try
-          if @options.merge
-            await @gitMerge @targetBranch + ' --autostash'
-          if @options.rebase
-            await @gitRebase @targetBranch + ' --autostash'
-        catch err
-          @checkConflicts err
-          #console.log 'error:'.red, err
-          console.log '1. Resolve conflicts'.yellow
-          if @options.merge
-            console.log '2. `git push`'.yellow
-          if @options.rebase
-            console.log '2. `git rebase --continue`\n3. `git push --force-with-lease`'.yellow
-          throw err
+          await @gitRebase @targetBranch + ' --autostash'
+      catch err
+        @checkConflicts err
+        #console.log 'error:'.red, err
+        console.log '1. Resolve conflicts'.yellow
+        if @options.merge
+          console.log '2. `git push`'.yellow
+        if @options.rebase
+          console.log '2. `git rebase --continue`\n3. `git push (--force-with-lease)`'.yellow
+        throw err
 
 
-      if @options.push
-        try
-          await @gitPush()
-        catch err
-          throw err
+    if @options.push
+      try
+        await @gitPush()
+      catch err
+        throw err
 
 
-      if @options.log isnt undefined and (@options.rebase isnt undefined or @options.merge)
-        log = await @logInfos @options.log
-        console.log log
+    if @options.log isnt undefined and (@options.rebase isnt undefined or @options.merge)
+      log = await @logInfos @options.log
+      console.log log
 
 
   logInfos: (pArgs = '') ->
@@ -257,6 +255,7 @@ module.exports = class App
     if regEx.exec pErr
       console.log '=> your current branch is behind!'.cyan
 
+      ###
       if @options.rebase and pArgs.indexOf '--force-with-lease' is -1
         try
           p = await @gitPush '--force-with-lease'
@@ -274,8 +273,9 @@ module.exports = class App
           throw err
 
         return b
+      ###
 
-      console.log '   `git pull --rebase --autostash`\nor `git push --force-with-lease`'.yellow
+      console.log '   `git pull --rebase --autostash`\nor `git push (--force-with-lease)`'.yellow
       return yes
 
     no
@@ -286,6 +286,7 @@ module.exports = class App
     if regEx.exec pErr
       console.log '=> your current branch contains work that you do!'.cyan
 
+      ###
       try
         b = await @gitPull '--rebase --autostash'
       catch err
@@ -297,8 +298,12 @@ module.exports = class App
       catch err
         #console.log 'error:'.red, err
         throw err
+      ###
 
-    p
+      console.log '   `git pull --rebase --autostash`\nor `git push (--force-with-lease)`'.yellow
+      return yes
+
+    no
 
 
   checkConflicts: (pErr) ->
@@ -306,6 +311,10 @@ module.exports = class App
     regEx2 = new RegExp /error: Pulling is not possible because you have unmerged files./g
     if regEx.exec(pErr) or regEx2.exec(pErr)
       console.log '=> You have to resolve conflicts!'.cyan
+
+      return yes
+
+    no
 
 
 app = new App()
