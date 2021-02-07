@@ -24,7 +24,7 @@ module.exports = class App
     ]
 
     @options = commandLineArgs optionDefinitions
-    console.log '@options:', @options
+    #console.log '@options:', @options
 
     @init()
 
@@ -150,7 +150,6 @@ module.exports = class App
       p = await gitP.pull pArgs
     catch err
       #console.log 'error:'.red, err
-      #console.log 'err.code:'.red, err.code
       throw err
 
     console.log ' Pull OK => '.green, p
@@ -164,7 +163,6 @@ module.exports = class App
       f = await gitP.fetch pArgs
     catch err
       #console.log 'error:'.red, err
-      #console.log 'err.code:'.red, err.code
       throw err
 
     console.log ' Fetch OK => '.green, f
