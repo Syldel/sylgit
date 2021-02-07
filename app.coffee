@@ -255,7 +255,6 @@ module.exports = class App
     if regEx.exec pErr
       console.log '=> your current branch is behind!'.cyan
 
-      ###
       if @options.rebase and pArgs.indexOf '--force-with-lease' is -1
         try
           p = await @gitPush '--force-with-lease'
@@ -265,6 +264,7 @@ module.exports = class App
 
         return p
 
+      ###
       if not @options.rebase
         try
           b = await @gitPull '--rebase --autostash'
