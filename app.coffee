@@ -43,8 +43,13 @@ module.exports = class App
         await @gitPull()
       catch err
         #console.log 'error:'.red, err
-        @checkConflicts err
-        throw err
+        regEx = new RegExp /There is no tracking information for the current branch/g
+        if regEx.exec err
+          console.log '=> no tracking information for the current branch'.cyan
+          console.log ' Ignore this git pull...'.yellow
+        else
+          @checkConflicts err
+          throw err
 
     if @options.merge or @options.rebase
 
