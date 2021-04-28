@@ -66,6 +66,10 @@ module.exports = class App
         await @gitFetch @remoteName + ' +' + @targetBranch + ':' + @targetBranch
       catch err
         #console.log 'error:'.red, err
+        regEx = new RegExp /Refusing to fetch into current branch/g
+        if regEx.exec err
+          console.log '=> Refusing to fetch into current branch'.cyan
+
         throw err
 
       try
@@ -122,7 +126,7 @@ module.exports = class App
 
       console.log ' Git status:'.green, s
 
-      regEx = new RegExp /On branch ([\w\/-]*)\n/g
+      regEx = new RegExp /On branch ([.\w\/-]*)\n/g
       matchBranch = regEx.exec s
 
       cBranch = matchBranch[1]
