@@ -14,13 +14,15 @@ Instead of invoking this option manually, you can also set this for your reposit
 $ git config pull.rebase true
 $ git config rebase.autoStash true
 ```
+
 Or you can set this globally for every Git repository:
 
 ```
 $ git config --global pull.rebase true
 $ git config --global rebase.autoStash true
 ```
-The --autostash option only works with --rebase, so it makes sense to set these two together. 
+
+The --autostash option only works with --rebase, so it makes sense to set these two together.
 
 ### How to use
 
@@ -53,6 +55,9 @@ sylgit -r -l
 ### Requirements
 
 You need to have node and git (> 2.6)
+
+Very important : Set your language environment to english!
+For example, in .zshrc, enable `export LANG=en_US.UTF-8`
 
 ### Installation
 
