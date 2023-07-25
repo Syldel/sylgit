@@ -126,10 +126,16 @@ module.exports = class App
 
       console.log ' Git status:'.green, s
 
-      regEx = new RegExp /On branch ([.\w\/-]*)\n/g
-      matchBranch = regEx.exec s
+      regExFr = new RegExp /Sur la branche ([.\w\/-]*)\n/g
+      matchBranchFr = regExFr.exec s
 
-      cBranch = matchBranch[1]
+      if matchBranchFr
+        cBranch = matchBranchFr[1]
+      else
+        regExEn = new RegExp /On branch ([.\w\/-]*)\n/g
+        matchBranchEn = regExEn.exec s
+
+        cBranch = matchBranchEn[1]
       console.log '\nCurrent Branch :'.green, cBranch
 
       ###
