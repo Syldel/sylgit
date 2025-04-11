@@ -27,7 +27,7 @@
     "sylgit": "bin/sylgit.js"
   },
   "devDependencies": {
-    "gulp": "^4.0.2",
+    "gulp": "^5.0.0",
     "gulp-coffee": "^3.0.3",
     "gulp-coffeelint": "^0.6.0"
   }
